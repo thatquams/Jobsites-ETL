@@ -8,6 +8,28 @@ TABLE_NAME = "job_listings"
 
 # def loadToPostgres(data, table_name, postgres_conn_id):
 def loadToPostgres(data):
+    
+    """
+        Load integrated job listing records into a PostgreSQL table on AWS RDS.
+
+        This function converts the input data into a pandas DataFrame, then connects
+        to PostgreSQL using Airflow's PostgresHook. For each job record, it attempts 
+        to insert the data into the target table while checking that the `href` field 
+        is not already present (to prevent duplicate entries).
+
+        Args:
+            data (list[dict]): A list of job listing dictionaries. Each record is expected 
+                to have the keys: 'title', 'company', 'posted_at', 'location', 'href', 'source'.
+
+        Returns:
+            None
+            Prints the number of successfully inserted records or an error message if something fails.
+
+        Notes:
+            - Connection uses Airflow connection ID `aws_postgres_conn`.
+            - Table name is defined in the global variable `TABLE_NAME`.
+            - Uses `psycopg2` under the hood via PostgresHook.
+    """
 
     convertDataToDf = pd.DataFrame(data)
 
@@ -25,8 +47,9 @@ def loadToPostgres(data):
             select_queery = f"SELECT href FROM {TABLE_NAME};"
             for index, row in convertDataToDf.iterrows():
                 insert_query = f"""
-                    INSERT INTO {TABLE_NAME} (title, company, posted_at, location, href, source) WHERE href NOT IN ({select_queery})
+                    INSERT INTO {TABLE_NAME} (title, company, posted_at, location, href, source) 
                     VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (href) DO NOTHING;
                 """
                 values = (row['title'], row['company'], row['posted_at'], row['location'], row['href'], row['source'])
                 _cursor.execute(insert_query, values)

@@ -43,6 +43,12 @@ def job_sites_dag():
     
     @task
     def extract_jobberman():
+        """
+            Extract job listings from Jobberman API.
+            
+            Returns:
+                list: A list of job records (dicts) retrieved from Jobberman.
+        """
         from include.jobberman import jobberMan
 
         jobberman_data = jobberMan(Variable.get("jobberman_base_url"), CURRENT_PAGE)
@@ -50,6 +56,12 @@ def job_sites_dag():
  
     @task
     def extract_myJobMag():
+        """
+            Extract job listings from MyJobMag API.
+            
+            Returns:
+                list: A list of job records (dicts) retrieved from MyJobMag.
+        """
         from include.myjobmag import myJobMag
 
         myjobmag_data = myJobMag(Variable.get("myjobmag_base_url"), CURRENT_PAGE)
@@ -57,10 +69,29 @@ def job_sites_dag():
     
     @task
     def integrate_results(jobberman_data, myjobmag_data):
+        """
+            Merge job listings from Jobberman and MyJobMag into a unified dataset.
+
+            Args:
+                jobberman_data (list): Job listings from Jobberman.
+                myjobmag_data (list): Job listings from MyJobMag.
+
+            Returns:
+                list: Integrated job listings.
+        """
         return integrateRecords(jobberman_data, myjobmag_data)
     
     @task
     def load_to_postgres(data):
+        """
+            Load integrated job listing records into a PostgreSQL table.
+
+            Args:
+                data (list): Integrated job listings to be loaded.
+
+            Returns:
+                str: Confirmation message of load status.
+        """
         from include.load_to_postgres import loadToPostgres
         return loadToPostgres(data)
     
@@ -74,12 +105,12 @@ def job_sites_dag():
                 """,
         )
     
-    # Call tasks only once
+    # Tasks Dependencies
     jobberman_task = extract_jobberman()
     myjobmag_task = extract_myJobMag()
     integrate_results = integrate_results(jobberman_task, myjobmag_task)
     
     chain([wait_for_jobberman, wait_for_myjobmag], [jobberman_task, myjobmag_task],\
           integrate_results, connect_to_pg_db, load_to_postgres(integrate_results))
-    # connect_to_pg_db
+
 job_sites_dag = job_sites_dag()
