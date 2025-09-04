@@ -7,6 +7,9 @@ from airflow.models.baseoperator import chain
 from include.extension import connectToJobSite, MAX_PAGES, CURRENT_PAGE
 from airflow.models import Variable
 from airflow.providers.http.sensors.http import HttpSensor
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+from include.integrate import integrateRecords
+from airflow.providers.postgres.operators.postgres import PostgresOperator
 
 default_args = {
     'owner': 'airflow', 
@@ -51,18 +54,32 @@ def job_sites_dag():
 
         myjobmag_data = myJobMag(Variable.get("myjobmag_base_url"), CURRENT_PAGE)
         return myjobmag_data
- 
+    
     @task
-    def integrateRecords(jobberman_data, myjobmag_data):
-        import pandas as pd 
-
-        combined_df = pd.concat([pd.DataFrame(jobberman_data), pd.DataFrame(myjobmag_data)], ignore_index=True)
-        return combined_df.to_dict(orient="records")
+    def integrate_results(jobberman_data, myjobmag_data):
+        return integrateRecords(jobberman_data, myjobmag_data)
     
-    jobberMan_task = extract_jobberman()
-    myJobMag_task = extract_myJobMag()
+    @task
+    def load_to_postgres(data):
+        from include.load_to_postgres import loadToPostgres
+        return loadToPostgres(data)
     
-
-    chain([wait_for_jobberman, wait_for_myjobmag], [jobberMan_task, myJobMag_task], integrateRecords(jobberMan_task, myJobMag_task))
-
-job_sites_dag_instance = job_sites_dag()
+    
+    connect_to_pg_db = PostgresOperator(
+            task_id="connect_to_pg_db",
+            postgres_conn_id="aws_postgres_conn",
+            sql="""
+                    CREATE TABLE IF NOT EXISTS job_listings (id SERIAL PRIMARY KEY, title TEXT NOT NULL,
+                    company TEXT NOT NULL,posted_at TEXT NOT NULL, location TEXT NOT NULL, href TEXT NOT NULL, source TEXT NOT NULL);
+                """,
+        )
+    
+    # Call tasks only once
+    jobberman_task = extract_jobberman()
+    myjobmag_task = extract_myJobMag()
+    integrate_results = integrate_results(jobberman_task, myjobmag_task)
+    
+    chain([wait_for_jobberman, wait_for_myjobmag], [jobberman_task, myjobmag_task],\
+          integrate_results, connect_to_pg_db, load_to_postgres(integrate_results))
+    # connect_to_pg_db
+job_sites_dag = job_sites_dag()

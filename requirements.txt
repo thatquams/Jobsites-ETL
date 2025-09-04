@@ -32,3 +32,4 @@ urllib3==1.26.20
 w3lib==2.3.1
 websockets==10.4
 zipp==3.23.0
+apache-airflow-providers-postgres
