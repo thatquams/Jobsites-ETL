@@ -8,18 +8,17 @@ This project automates job data collection from [Jobberman](https://www.jobberma
 
 ## 📂 Project Structure
 
+```bash
 Jobsites-ETL/
 ├── dags/
-│ └── job_sites_dag.py # Main Airflow DAG definition
+│   └── job_sites_dag.py         # Main Airflow DAG definition
 ├── include/
-│ ├── extension.py # Utility decorator for scraping sites
-│ ├── jobberman.py # Jobberman scraper
-│ ├── myjobmag.py # MyJobMag scraper
-│ ├── integrate.py # Integration logic (merge datasets)
-│ ├── load_to_postgres.py # Loader for PostgreSQL (deduplicated inserts)
-├── requirements.txt # Project dependencies
-
-
+│   ├── extension.py              # Utility decorator for scraping sites
+│   ├── jobberman.py              # Jobberman scraper
+│   ├── myjobmag.py               # MyJobMag scraper
+│   ├── integrate.py              # Integration logic (merge datasets)
+│   ├── load_to_postgres.py       # Loader for PostgreSQL (deduplicated inserts)
+├── requirements.txt              # Project dependencies
 ---
 
 ## ⚙️ Tech Stack
