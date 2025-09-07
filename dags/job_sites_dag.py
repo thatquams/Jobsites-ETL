@@ -10,6 +10,8 @@ from airflow.providers.http.sensors.http import HttpSensor
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from include.integrate import integrateRecords
 from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.operators.email_operator import EmailOperator
+# from airflow.providers.smtp.operators.smtp import EmailOperator
 
 default_args = {
     'owner': 'airflow', 
@@ -54,7 +56,7 @@ def job_sites_dag():
         jobberman_data = jobberMan(Variable.get("jobberman_base_url"), CURRENT_PAGE)
         return jobberman_data
  
-    @task
+    @task(pool="my_job_mag_pool")
     def extract_myJobMag():
         """
             Extract job listings from MyJobMag API.
@@ -67,7 +69,7 @@ def job_sites_dag():
         myjobmag_data = myJobMag(Variable.get("myjobmag_base_url"), CURRENT_PAGE)
         return myjobmag_data
     
-    @task
+    @task(pool="result_integration_pool")
     def integrate_results(jobberman_data, myjobmag_data):
         """
             Merge job listings from Jobberman and MyJobMag into a unified dataset.
@@ -81,7 +83,7 @@ def job_sites_dag():
         """
         return integrateRecords(jobberman_data, myjobmag_data)
     
-    @task
+    @task(pool="result_integration_pool")
     def load_to_postgres(data):
         """
             Load integrated job listing records into a PostgreSQL table.
@@ -100,17 +102,32 @@ def job_sites_dag():
             task_id="connect_to_pg_db",
             postgres_conn_id="aws_postgres_conn",
             sql="""
-                    CREATE TABLE IF NOT EXISTS job_listings (id SERIAL PRIMARY KEY, title TEXT NOT NULL,
-                    company TEXT NOT NULL,posted_at TEXT NOT NULL, location TEXT NOT NULL, href TEXT NOT NULL, source TEXT NOT NULL);
+                    CREATE TABLE IF NOT EXISTS job_listings (href TEXT PRIMARY KEY, title TEXT NOT NULL,
+                    company TEXT NOT NULL,posted_at TEXT NOT NULL, location TEXT NOT NULL, source TEXT NOT NULL);
                 """,
         )
+    
+        
+    sendEmailForFailureOrSuccess = EmailOperator(
+        task_id="sendEmailForFailureOrSuccess",
+        to=["thatquams@gmail.com"],
+        subject="Hello Quams, Job Sites DAG Execution Status",
+        html_content="<i>Check out the status of your last DAG RUN</i>",
+        cc=["dev.abdulraheem@gmail.com"],
+        conn_id="smtp_default",
+    )
+
     
     # Tasks Dependencies
     jobberman_task = extract_jobberman()
     myjobmag_task = extract_myJobMag()
     integrate_results = integrate_results(jobberman_task, myjobmag_task)
     
-    chain([wait_for_jobberman, wait_for_myjobmag], [jobberman_task, myjobmag_task],\
-          integrate_results, connect_to_pg_db, load_to_postgres(integrate_results))
-
+    # chain([wait_for_jobberman, wait_for_myjobmag], [jobberman_task, myjobmag_task],\
+    #       integrate_results, connect_to_pg_db, load_to_postgres(integrate_results))
+    
+    chain([wait_for_jobberman, wait_for_myjobmag],connect_to_pg_db, [jobberman_task, myjobmag_task],\
+          integrate_results, load_to_postgres(integrate_results), sendEmailForFailureOrSuccess)
+    
+    # chain([wait_for_jobberman, wait_for_myjobmag], sendEmailForFailureOrSuccess)
 job_sites_dag = job_sites_dag()

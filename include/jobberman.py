@@ -20,7 +20,7 @@ def jobberMan(content, currentPage=1):
     job_cards = content.find_all(attrs={"data-cy" : "listing-cards-components"})
     jobs = []
 
-    while currentPage <= 1:
+    while currentPage <= MAX_PAGES:
         try:
             for job in job_cards:
                 posted_at = job.find("p", class_="ml-auto text-sm font-normal text-gray-700 text-loading-animate")
@@ -45,6 +45,8 @@ def jobberMan(content, currentPage=1):
             print(f"Error parsing job card: {e}")
             
         currentPage += 1
+        # if currentPage == MAX_PAGES:
+        #     break
 
     return jobs
         

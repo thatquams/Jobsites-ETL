@@ -33,7 +33,6 @@ def loadToPostgres(data):
 
     convertDataToDf = pd.DataFrame(data)
 
-    # try:
     # Initialize PostgresHook
     postgres_hook = PostgresHook(postgres_conn_id='aws_postgres_conn')
     
@@ -47,11 +46,12 @@ def loadToPostgres(data):
             select_queery = f"SELECT href FROM {TABLE_NAME};"
             for index, row in convertDataToDf.iterrows():
                 insert_query = f"""
-                    INSERT INTO {TABLE_NAME} (title, company, posted_at, location, href, source) 
+                    INSERT INTO {TABLE_NAME} (href, title, company, posted_at, location, source) 
                     VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (href) DO NOTHING;
+
                 """
-                values = (row['title'], row['company'], row['posted_at'], row['location'], row['href'], row['source'])
+                values = (row['href'], row['title'], row['company'], row['posted_at'], row['location'], row['source'])
                 _cursor.execute(insert_query, values)
                 
             _connection.commit()

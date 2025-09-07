@@ -27,7 +27,7 @@ def myJobMag(content, currentPage=1):
     jobListings = content.find("ul", class_="job-list")
     jobs = []
     
-    while currentPage <= 1:
+    while currentPage <= MAX_PAGES:
         
         try:
             

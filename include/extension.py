@@ -5,7 +5,7 @@ from airflow.models import Variable
 import pandas as pd
 
 # SET MAX PAGES TO SCRAPE
-MAX_PAGES = 5
+MAX_PAGES = 20
 CURRENT_PAGE = 1
 
 
